@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html" charset="utf-8"/>
+  <title>TensorFlowJS - Fingerpose</title>
+
+  <!-- Require the peer dependencies of handpose. -->
+  <script src="https://unpkg.com/@tensorflow/tfjs-core@3.7.0/dist/tf-core.js"></script>
+  <script src="https://unpkg.com/@tensorflow/tfjs-converter@3.7.0/dist/tf-converter.js"></script>
+
+  <!-- You must explicitly require a TF.js backend if you're not using the tfs union bundle. -->
+  <script src="https://unpkg.com/@tensorflow/tfjs-backend-webgl@3.7.0/dist/tf-backend-webgl.js"></script>
+
+  <!-- The main handpose library -->
+  <script src="https://unpkg.com/@tensorflow-models/handpose@0.0.7/dist/handpose.js"></script>
+
+  <!-- The fingerpose library -->
+  <script src="https://s3.amazonaws.com/lacabinadavivienda.com/projects/idarevalos/ml/js/fingerpose.js" type="text/javascript"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    
+  <link href='https://fonts.googleapis.com/css?family=Roboto:400,100,300,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background-color: #212529;
+      color: #333333;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    .video,
+    .debug {
+      padding: 0 20px;
+    }
+
+    table.summary {
+      border: 1px solid #333;
+      border-collapse: collapse;
+    }
+
+    table.summary td,
+    table.summary th {
+      border: 1px solid #333;
+      padding: 5px 8px;
+    }
+
+    #video-container {
+      width: 640px;
+      height: 480px;
+      position: relative;
+    }
+
+    .layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #pose-video {
+      transform: scaleX(-1);
+    }
+
+    #pose-result {
+      font-size: 100px;
+      text-align: right;
+      padding: 20px 30px 0 0;
+    }
+  </style>
+</head>
+<body>
+    <nav id="colorlib-main-nav" role="navigation">
+        <a href="#" class="js-colorlib-nav-toggle colorlib-nav-toggle active"><i></i></a>
+        <div class="js-fullheight colorlib-table">
+          <div class="img" style="background-image: url(images/bg_3.jpg);"></div>
+          <div class="colorlib-table-cell js-fullheight">
+            <div class="row no-gutters">
+              <div class="col-md-12 text-center">
+                <h1 class="mb-4"><a href="index.html" class="logo">Investigación</a></h1>
+                <ul>
+                  <li><a href="handpose.html"><span>TFJS Handpose</span></a></li>
+                  <li class="active"><a href="fingerpose.html"><span>TFJS Fingerpose</span></a></li>
+                  <li><a href="implementacion.html"><span>Implementación Web</span></a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+      
+      <div id="colorlib-page">
+        <header>
+            <div class="container">
+              <div class="colorlib-navbar-brand">
+                <a class="colorlib-logo" href="index.html">Marlon Algarra</a>
+              </div>
+              <a href="#" class="js-colorlib-nav-toggle colorlib-nav-toggle"><i></i></a>
+          </div>
+        </header>
+        </div>
+
+        <section class="hero-wrap js-fullheight" id="sectionContent">
+            <div class="container px-0">
+              <div class="row no-gutters slider-text js-fullheight align-items-center justify-content-center" data-scrollax-parent="true">
+                <div class="col-md-12 ftco-animate text-center">
+                    <div class="desc">
+                      <h2 style="color:white;">Use "✌" para activar una alerta</h2>
+                      <h2 style="color:white;">Use "🖐" para mostrar la cámara<h2>
+                      <h2 style="color:white;">Use "✊" para cerrar la cámara<h2>
+                  </div>
+                </div>
+              </div>
+            </div>
+        </section>
+
+  <div  id="videoDiv"class="container" style="margin-top:10%; display: none;">
+        <div class="video">
+            <div id="video-container">
+              <video id="pose-video" class="layer" playsinline></video>
+              <canvas id="pose-canvas" class="layer"></canvas>
+              <div id="pose-result" class="layer"></div>
+            </div>
+            
+          </div>
+          <div class="debug">
+            <table class="summary" style="color: white;">
+              <thead>
+                <tr>
+                  <th>Idx</th>
+                  <th>Finger</th>
+                  <th style="width: 110px">Curl</th>
+                  <th style="width: 170px">Direction</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>0</td>
+                  <td>Thumb</td>
+                  <td><span id="curl-0">-</span></td>
+                  <td><span id="dir-0">-</span></td>
+                </tr>
+                <tr>
+                  <td>1</td>
+                  <td>Index</td>
+                  <td><span id="curl-1">-</span></td>
+                  <td><span id="dir-1">-</span></td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>Middle</td>
+                  <td><span id="curl-2">-</span></td>
+                  <td><span id="dir-2">-</span></td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>Ring</td>
+                  <td><span id="curl-3">-</span></td>
+                  <td><span id="dir-3">-</span></td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>Pinky</td>
+                  <td><span id="curl-4">-</span></td>
+                  <td><span id="dir-4">-</span></td>
+                </tr>
+              </tbody>
+            </table>
+        </div>
+
+    </div>
+
+   
+
+  </div>
+  <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script>
+
+    // Nuevo gesto pulgar abajo o dislike
+    const thumbsDownGesture = new fp.GestureDescription('thumbs_down');
+    thumbsDownGesture.addCurl(fp.Finger.Thumb, fp.FingerCurl.NoCurl);
+    thumbsDownGesture.addDirection(fp.Finger.Thumb, fp.FingerDirection.VerticalDown, 1.0);
+    thumbsDownGesture.addDirection(fp.Finger.Thumb, fp.FingerDirection.DiagonalDownLeft, 0.9);
+    thumbsDownGesture.addDirection(fp.Finger.Thumb, fp.FingerDirection.DiagonalDownRight, 0.9);
+    for(let finger of [fp.Finger.Index, fp.Finger.Middle, fp.Finger.Ring, fp.Finger.Pinky]) {
+        thumbsDownGesture.addCurl(finger, fp.FingerCurl.FullCurl, 1.0);
+        thumbsDownGesture.addCurl(finger, fp.FingerCurl.HalfCurl, 0.9);
+    }
+
+    //Nuevo gesto mano cerrada
+    const closeHands = new fp.GestureDescription('close_hand');
+    closeHands.addCurl(fp.Finger.Index, fp.FingerCurl.FullCurl);
+    closeHands.addCurl(fp.Finger.Middle, fp.FingerCurl.FullCurl);
+    closeHands.addCurl(fp.Finger.Ring, fp.FingerCurl.FullCurl);
+    closeHands.addCurl(fp.Finger.Pinky, fp.FingerCurl.FullCurl);
+
+    closeHands.addCurl(fp.Finger.Thumb, fp.FingerCurl.HalfCurl);
+    closeHands.addCurl(fp.Finger.Thumb, fp.FingerCurl.FullCurl);
+
+    //Nuevo gesto mano abierta
+    const openHands = new fp.GestureDescription('open_hand');
+    openHands.addCurl(fp.Finger.Index, fp.FingerCurl.NoCurl);
+    openHands.addCurl(fp.Finger.Middle, fp.FingerCurl.NoCurl);
+    openHands.addCurl(fp.Finger.Ring, fp.FingerCurl.NoCurl);
+    openHands.addCurl(fp.Finger.Pinky, fp.FingerCurl.NoCurl);
+    openHands.addCurl(fp.Finger.Thumb, fp.FingerCurl.NoCurl);
+
+    const config = {
+      video: { width: 640, height: 480, fps: 30 }
+    };
+
+    const landmarkColors = {
+      thumb: 'red',
+      indexFinger: 'blue',
+      middleFinger: 'yellow',
+      ringFinger: 'green',
+      pinky: 'pink',
+      palmBase: 'white'
+    };
+
+    const gestureStrings = {
+      'thumbs_up': '👍',
+      'victory': '✌',
+      'thumbs_down': '👎',
+      'close_hand': '✊',
+      'open_hand': '🖐'
+    };
+
+    async function main() {
+
+      const video = document.querySelector("#pose-video");
+      const canvas = document.querySelector("#pose-canvas");
+      const ctx = canvas.getContext("2d");
+      const videoDiv = document.getElementById("videoDiv");
+      const sectionContent = document.getElementById("sectionContent");
+
+      const resultLayer = document.querySelector("#pose-result");
+
+      // configure gesture estimator
+      // add "✌" and "" as sample gestures
+      const knownGestures = [
+        fp.Gestures.VictoryGesture,
+        fp.Gestures.ThumbsUpGesture,
+        thumbsDownGesture,
+        closeHands,
+        openHands
+      ];
+      const GE = new fp.GestureEstimator(knownGestures);
+
+      // load handpose model
+      const model = await handpose.load();
+      console.log("Handpose model loaded");
+
+      const estimateHandsForAlert = async () => {
+        const predictions = await model.estimateHands(video, true);
+        for(let i = 0; i < predictions.length; i++) {
+            const est = GE.estimate(predictions[i].landmarks, 9);
+            if(est.gestures.length > 0) {
+            let typeResult = est.gestures[0]['name'];
+            
+            if(typeResult=="thumbs_up"){
+                console.log(typeResult)
+                swal.close();
+                estimateHands();
+                return true;
+            }
+            //
+          }
+        }
+        setTimeout(() => { estimateHandsForAlert(); }, 1000 / config.video.fps);
+      };
+
+      // main estimation loop
+      const estimateHands = async () => {
+        flag = true;
+        // clear canvas overlay
+        ctx.clearRect(0, 0, config.video.width, config.video.height);
+        resultLayer.innerText = '';
+
+        // get hand landmarks from video
+        // Note: Handpose currently only detects one hand at a time
+        // Therefore the maximum number of predictions is 1
+        const predictions = await model.estimateHands(video, true);
+
+        for(let i = 0; i < predictions.length; i++) {
+
+          // draw colored dots at each predicted joint position
+          for(let part in predictions[i].annotations) {
+            for(let point of predictions[i].annotations[part]) {
+              drawPoint(ctx, point[0], point[1], 3, landmarkColors[part]);
+            }
+          }
+
+          // estimate gestures based on landmarks
+          // using a minimum score of 9 (out of 10)
+          // gesture candidates with lower score will not be returned
+          const est = GE.estimate(predictions[i].landmarks, 9);
+
+          if(est.gestures.length > 0) {
+            //console.log(est.gestures)
+            let typeResult = est.gestures[0]['name'];
+            console.log(typeResult)
+            if(typeResult == 'victory'){
+                flag = false;
+                Swal.fire({
+                    title: 'Alerta generada por gestos',
+                    text: "Puedes cerrarla haciendo el gesto de like",
+                    icon: 'success',
+                    confirmButtonText: '👍'
+                })
+                resultResponse = estimateHandsForAlert()
+                console.log(resultResponse);
+            }else if(typeResult == 'open_hand'){
+                sectionContent.style.display = 'none';
+                videoDiv.style.display = '';
+            }else if(typeResult == 'close_hand'){
+                videoDiv.style.display = 'none';
+                sectionContent.style.display = '';
+            }
+            // find gesture with highest match score
+            let result = est.gestures.reduce((p, c) => { 
+              return (p.score > c.score) ? p : c;
+            });
+
+            resultLayer.innerText = gestureStrings[result.name];
+          }
+
+          // update debug info
+          updateDebugInfo(est.poseData);
+        }
+
+        // ...and so on
+        if(flag){
+            setTimeout(() => { estimateHands(); }, 1000 / config.video.fps);
+        }
+        
+      };
+
+      estimateHands();
+      console.log("Starting predictions");
+    }
+
+    function showAlert(){
+
+    }
+
+
+    async function initCamera(width, height, fps) {
+
+      const constraints = {
+        audio: false,
+        video: {
+          facingMode: "user",
+          width: width,
+          height: height,
+          frameRate: { max: fps }
+        }
+      };
+
+      const video = document.querySelector("#pose-video");
+      video.width = width;
+      video.height = height;
+
+      // get video stream
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream;
+
+      return new Promise(resolve => {
+        video.onloadedmetadata = () => { resolve(video) };
+      });
+    }
+
+    function drawPoint(ctx, x, y, r, color) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    function updateDebugInfo(data) {
+      for(let fingerIdx in data) {
+        document.getElementById("curl-" + fingerIdx).innerText = data[fingerIdx][1];
+        document.getElementById("dir-" + fingerIdx).innerText = data[fingerIdx][2];
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+
+      initCamera(
+        config.video.width, config.video.height, config.video.fps
+      ).then(video => {
+        video.play();
+        video.addEventListener("loadeddata", event => {
+          console.log("Camera is ready");
+          main();
+        });
+      });
+
+      const canvas = document.querySelector("#pose-canvas");
+      canvas.width = config.video.width;
+      canvas.height = config.video.height;
+      console.log("Canvas initialized");
+    });
+  </script>
+        <script src="js/jquery.min.js"></script>
+        <script src="js/popper.js"></script>
+        <script src="js/bootstrap.min.js"></script>
+        <script src="js/main.js"></script>
+</body>
+</html>
